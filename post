@@ -1,0 +1,63 @@
+#!/usr/bin/perl --
+
+use strict;
+use Net::Twitter::Lite::WithAPIv1_1;
+use Config::Simple;
+use File::Spec;
+use Encode;
+
+if(@ARGV != 1) {
+	print "usage: " . __FILE__ . " tweet\n";
+	exit 1;
+}
+
+my ($param, $setting_path, $setting_file);
+$setting_path = File::Spec->rel2abs();
+$setting_path =~ s/__FILE__//g;
+$setting_file = "$setting_path/twitter.ini";
+if(! -f "$setting_file"){
+	print "not Setting File.\n";
+	print "Please Authorized. -> [./auth]\n";
+	exit 0;
+}
+
+$param = new Config::Simple("$setting_file")->vars();
+my $max_length	= 140;
+
+# コンシューマ セット
+my %INIT_PARAMS = (
+    consumer_key    => $param->{"CONSUMER_PARAM.CONSUMER_KEY"},
+    consumer_secret => $param->{"CONSUMER_PARAM.CONSUMER_SECRET"},
+    ssl             => 1,
+);
+
+my $t = Net::Twitter::Lite::WithAPIv1_1->new(%INIT_PARAMS);
+
+# トークンをセットする
+$t->access_token($param->{"ACCESS_TOKEN.ACCESS_TOKEN"});
+$t->access_token_secret($param->{"ACCESS_TOKEN.TOKEN_SECRET"});
+
+binmode(STDOUT, ":utf8");
+
+# 投稿
+# delete strings
+my $tweet = decode('utf-8', $ARGV[0]);
+if(length($tweet) > $max_length) {
+    $tweet = substr($tweet, 0, $max_length - 3) . "...";
+}
+
+# post to Twitter
+my ($status, $ret);
+eval {
+	$status = $t->update({ status => $tweet });
+};
+if($@) {
+	print "WARNING: $@\n";
+	$ret = 1;
+
+} else {
+	print "posted.[$tweet]\n";
+	$ret = 0;
+}
+exit $ret;
+
